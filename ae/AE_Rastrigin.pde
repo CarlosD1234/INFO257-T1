@@ -241,7 +241,15 @@ void draw() {
 
   // === Ciclo evolutivo: Selección -> Cruzamiento -> Mutación -> Evaluación -> Reinserción ===
   newPop = new Individual[popSize];
-  int idx = 0;
+
+  // Elitismo: preservar el mejor individuo de la generación actual
+  int eliteIdx = 0;
+  for (int i = 1; i < popSize; i++) {
+    if (pop[i].fit < pop[eliteIdx].fit) eliteIdx = i;
+  }
+  newPop[0] = new Individual(pop[eliteIdx].x, pop[eliteIdx].y);
+  newPop[0].fit = pop[eliteIdx].fit;
+  int idx = 1;
 
   // Genera nueva población mediante selección, cruzamiento y mutación
   while (idx < popSize) {
