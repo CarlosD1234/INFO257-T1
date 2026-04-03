@@ -220,12 +220,14 @@ class PSO:
         plt.show()
 
 if __name__ == "__main__":
-    # Crear instancia de PSO con Rastrigin
-    pso = PSO(rastrigin, n_particles=50, dom_min=-3, dom_max=7)
-    
     # Flags de ejecución
-    MOSTRAR_ANIMACION = True
+    MOSTRAR_ANIMACION = False
     GUARDAR_DATOS = True
     
-    # Iniciar proceso
-    pso.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+    # Iniciar proceso para estudio (30 ejecuciones independientes)
+    print(f"Iniciando estudio de 30 ejecuciones...")
+    for i in range(30):
+        # Crear una instancia NUEVA en cada iteración para resetear partículas e historial
+        pso = PSO(rastrigin, n_particles=50, dom_min=-3, dom_max=7)
+        pso.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+        print(f"Ejecución {i+1}/30 completada.")
