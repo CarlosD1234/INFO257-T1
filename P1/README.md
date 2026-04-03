@@ -1,76 +1,95 @@
 # Optimización de Función Rastrigin: PSO vs AE
 
-Este proyecto implementa dos de los algoritmos metaheurísticos más populares para la optimización de funciones continuas: **Optimización por Enjambre de Partículas (PSO)** y **Algoritmos Evolutivos (AE)**. El objetivo es encontrar el mínimo global de la función **Rastrigin** en un dominio de 2 dimensiones (entre -3 y 7).
+Este proyecto implementa dos algoritmos metaheurísticos para la optimización de funciones continuas: **Optimización por Enjambre de Partículas (PSO)** y **Algoritmos Evolutivos (AE)**. El objetivo es minimizar la función **Rastrigin** en un dominio bidimensional (-3 a 7).
 
-## Características principales
+## 1. 🧠 Análisis del propósito
 
-*   **Visualización Dual interactiva**: Ambos scripts incluyen una animación en tiempo real con Matplotlib que muestra el mapa de calor de la función y la curva de convergencia simultáneamente.
-*   **Modo Estudio (Sin Animación)**: Opción para ejecutar los algoritmos a máxima velocidad sin interfaz gráfica, ideal para la recolección masiva de datos.
-*   **Exportación automática a CSV**: Los resultados de cada iteración se guardan de forma persistente en la carpeta `data/` con marcas de tiempo, facilitando su análisis posterior en Excel o Python.
-*   **Aceleración por GPU**: El archivo `plot.py` incluye funciones experimentales para pre-visualizar la superficie usando **Plotly (WebGL)** aprovechando tu tarjeta gráfica.
+El proyecto resuelve el problema de la optimización global en superficies con múltiples mínimos locales (como Rastrigin). Proporciona una plataforma para:
 
-## Requisitos Previos
+- Visualizar la convergencia de poblaciones/enjambres en tiempo real.
+- Recolectar datos de rendimiento (fitness promedio y mejor fitness) para estudios comparativos.
+- Ejecutar pruebas masivas mediante un "modo estudio" sin interfaz gráfica.
 
-*   Python 3.10 o superior.
-*   Escritorio de Windows (para las animaciones de Matplotlib).
+Como resultado, genera archivos CSV detallados con el historial de cada ejecución y animaciones interactivas de la evolución del algoritmo.
 
-## Instalación y Configuración
+---
 
-Sigue estos pasos para configurar el entorno virtual e instalar las dependencias necesarias:
+## 📁 Estructura del proyecto
 
-```powershell
-# 1. Clonar el repositorio y entrar a la carpeta del proyecto
-cd INFO257-T1/P1
+```bash
+.
+├── README.md           # Documentación del proyecto
+├── requirements.txt    # Dependencias de Python
+├── data/               # Resultados de las ejecuciones
+│   ├── data_pso.csv    # Historial de PSO
+│   └── data_ae.csv     # Historial de AE
+├── src/                # Código fuente
+│   ├── pso.py          # Implementación y animación de PSO
+│   ├── ae.py           # Implementación y animación de AE
+│   └── plot.py         # Utilidades de graficación y Heatmap
+└── venv/               # Entorno virtual (generado localmente)
+```
 
-# 2. Crear el entorno virtual (venv)
+- **src/**: Contiene los módulos principales de lógica y visualización.
+- **data/**: Carpeta generada automáticamente donde se guardan los logs de las ejecuciones.
+- **requirements.txt**: Lista de librerías necesarias (numpy, matplotlib, plotly).
+
+---
+
+## ⚠️ Problemas / posibles errores
+
+- **Dependencias de GUI**: Las animaciones de Matplotlib requieren un entorno con soporte para ventanas (Desktop). No funcionarán en entornos headless (como servidores SSH sin X11) a menos que se use el modo estudio (`animation=False`).
+- **Codificación de requirements.txt**: El archivo generado via PowerShell puede estar en UTF-16LE, lo que podría causar problemas en algunos editores de texto si no se detecta correctamente.
+- **Bloqueo de archivos**: Evitar tener abiertos los archivos CSV en Excel mientras se corre el algoritmo, ya que el script intenta hacer *append* y podría fallar por permisos de escritura.
+
+---
+
+## ⚙️ Setup
+
+### 4.1 Instalación
+
+Sigue estos comandos en tu terminal (Windows PowerShell preferido):
+
+```bash
+# Crear entorno virtual
 python -m venv venv
 
-# 3. Activar el entorno virtual
+# Activar entorno virtual
 .\venv\Scripts\activate
 
-# 4. Instalar dependencias
+# Instalar dependencias
 pip install -r requirements.txt
 ```
 
-> **Nota**: Si tienes problemas instalando `plotly` o `matplotlib`, asegúrate de tener una versión reciente de `pip`.
+---
 
-## Cómo ejecutar
+## ▶️ Ejecución
 
-### Optimización por Enjambre de Partículas (PSO)
-```powershell
-python .\src\pso.py
+Desde la carpeta raíz del proyecto, puedes ejecutar ambos algoritmos:
+
+### Ejecutar PSO (Particle Swarm Optimization)
+
+```bash
+python src/pso.py
 ```
 
-### Algoritmo Evolutivo (AE)
-```powershell
-python .\src\ae.py
+### Ejecutar AE (Algoritmo Evolutivo)
+
+```bash
+python src/ae.py
 ```
 
-## Configuración de Banderas (Modo Estudio)
-
-Al final de los archivos `src/pso.py` y `src/ae.py`, puedes configurar las siguientes variables para tu estudio:
-
-```python
-# pso.py o ae.py
-if __name__ == "__main__":
-    # ...
-    MOSTRAR_ANIMACION = True  # Cambia a False para ejecución rápida
-    GUARDAR_DATOS = True      # Cambia a False para no generar archivos CSV
-    # ...
-```
-
-## Estructura de Datos (CSV)
-
-Los archivos de salida se encuentran en la carpeta `data/`:
-*   `data_pso.csv`: Resultados de las ejecuciones de PSO.
-*   `data_ae.csv`: Resultados de las ejecuciones de AE.
-
-**Columnas registradas:**
-1.  **ejecucion**: Fecha y hora de inicio de la prueba.
-2.  **iteracion**: Número de generación/ciclo.
-3.  **gbest_gen**: Mejor fitness encontrado en *esa* generación específica.
-4.  **average**: Fitness promedio de toda la población en esa generación.
-5.  **gbest_historico**: El mejor valor absoluto encontrado desde el inicio de la ejecución.
+> **Tip**: Puedes modificar las banderas `MOSTRAR_ANIMACION` y `GUARDAR_DATOS` al final de cada archivo `.py` para cambiar el comportamiento del script.
 
 ---
-Proyecto desarrollado para el curso de Inteligencia Artificial - INFO257.
+
+## ⚠️ Disclaimer
+
+* Fecha de generación: 2026-04-03
+
+Esta documentación fue generada automáticamente por una IA utilizando un workflow.
+
+---
+
+**Revisor:** Renato Atencio
+**Revisado:** [x]
