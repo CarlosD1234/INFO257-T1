@@ -40,7 +40,7 @@ class Individual:
 
 class AE:
     def __init__(self, func, pop_size=100, dom_min=-3, dom_max=7, 
-                 tournament_k=3, crossover_prob=0.7, mutation_prob=0.05, mutation_range=0.5):
+                 tournament_k=3, crossover_prob=0.7, mutation_prob=0.05, mutation_range=0.5, max_generations=100):
         self.func = func
         self.pop_size = pop_size
         self.dom_min = dom_min
@@ -49,6 +49,8 @@ class AE:
         self.crossover_prob = crossover_prob
         self.mutation_prob = mutation_prob
         self.mutation_range = mutation_range
+        self.initial_mutation_range = mutation_range
+        self.max_generations = max_generations
         
         # Inicializar población
         self.pop = [Individual(dom_min, dom_max) for _ in range(pop_size)]
@@ -63,7 +65,7 @@ class AE:
         self.history = []        # GBest Histórico
         self.avg_history = []    # Promedio de la generación
         self.best_gen_history = [] # Mejor de la generación actual
-        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%fZ")
 
     def tournament_selection(self):
         # Seleccionar K individuos al azar y devolver el mejor
@@ -103,6 +105,18 @@ class AE:
         ind.y = np.clip(ind.y, self.dom_min, self.dom_max)
 
     def step(self, save_data=True):
+        # Adaptación del rango de mutación (disminución en 1/4 cada hito)
+        if not hasattr(self, 'hitos_alcanzados'):
+            self.hitos_alcanzados = set()
+
+        hitos = [0.2, 0.4, 0.6, 0.8]
+        for hito in hitos:
+            if hito not in self.hitos_alcanzados and self.generation >= int(self.max_generations * hito):
+                self.mutation_range -= self.initial_mutation_range * 0.22
+                self.mutation_range = max(self.mutation_range, self.initial_mutation_range * 0.01)
+                self.hitos_alcanzados.add(hito)
+                print(f"--- Gen {self.generation}: Hito {hito} alcanzado. Rango ahora: {self.mutation_range:.4f} ---")
+
         new_pop = []
         
         # Elitismo: Preservar el mejor
@@ -237,11 +251,34 @@ if __name__ == "__main__":
     # Flags de ejecución
     MOSTRAR_ANIMACION = False
     GUARDAR_DATOS = True
+
+    iterations = 200
+    # ae = AE(
+    #     rastrigin, 
+    #     pop_size=100, 
+    #     dom_min=-3, 
+    #     dom_max=7, 
+    #     tournament_k=3,
+    #     crossover_prob=0.8, 
+    #     mutation_prob=0.2,        # 10% es más estándar que 10
+    #     mutation_range=1,       # Empezamos con un rango mayor para explorar valles
+    #     max_generations=iterations
+    # )
+    # ae.ejecutar(iterations=iterations, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
     
     # Iniciar proceso para estudio (30 ejecuciones independientes)
     print(f"Iniciando estudio de 30 ejecuciones...")
     for i in range(30):
-        # Crear una instancia NUEVA en cada iteración para resetear individuos e historial
-        ae = AE(rastrigin, pop_size=100, dom_min=-3, dom_max=7)
-        ae.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+        ae = AE(
+            rastrigin, 
+            pop_size=100, 
+            dom_min=-3, 
+            dom_max=7, 
+            tournament_k=3,
+            crossover_prob=0.8, 
+            mutation_prob=0.2,        # 10% es más estándar que 10
+            mutation_range=1,         # Empezamos con un rango mayor para explorar valles
+            max_generations=iterations
+        )
+        ae.ejecutar(iterations=iterations, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
         print(f"Ejecución {i+1}/30 completada.")

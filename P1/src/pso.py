@@ -99,7 +99,7 @@ class PSO:
         self.history = []        # GBest Histórico
         self.avg_history = []    # Promedio de la generación
         self.best_gen_history = [] # Mejor de la generación actual
-        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%fZ")
 
     def step(self, save_data=True):
         current_fits = []
@@ -223,11 +223,63 @@ if __name__ == "__main__":
     # Flags de ejecución
     MOSTRAR_ANIMACION = False
     GUARDAR_DATOS = True
+
+    # pso = PSO(
+    #     rastrigin, 
+    #     dom_min=-3, 
+    #     dom_max=7, 
+    #     n_particles=100,
+    #     w=0.7,
+    #     c1=1.8,
+    #     c2=1.5,
+    #     max_v=0.5
+    # )
+
+    # pso = PSO(
+    #     rastrigin, 
+    #     dom_min=-3, 
+    #     dom_max=7, 
+    #     n_particles=50,
+    #     w=0.8,
+    #     c1=0.5,
+    #     c2=1,
+    #     max_v=0.5
+    # )
+    # pso.ejecutar(iterations=80, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
     
+
     # Iniciar proceso para estudio (30 ejecuciones independientes)
     print(f"Iniciando estudio de 30 ejecuciones...")
     for i in range(30):
         # Crear una instancia NUEVA en cada iteración para resetear partículas e historial
-        pso = PSO(rastrigin, n_particles=50, dom_min=-3, dom_max=7)
+        pso = PSO(
+            rastrigin, 
+            dom_min=-3, 
+            dom_max=7, 
+            n_particles=100,
+            w=0.7,
+            c1=1.8,
+            c2=1.5,
+            max_v=0.5
+        )
         pso.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
         print(f"Ejecución {i+1}/30 completada.")
+
+
+# Mostrar donde converge prematuramente
+
+# Mostrar cuando no converge
+
+# Mostrar los casos wenos (Aca hacemos el promedio con las 30 ejecuiones)
+
+
+# pso = PSO(
+#         rastrigin, 
+#         dom_min=-3, 
+#         dom_max=7, 
+#         n_particles=50,
+#         w=0.8,
+#         c1=0.5,
+#         c2=1,
+#         max_v=0.5
+#     )
