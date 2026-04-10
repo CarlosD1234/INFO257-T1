@@ -221,8 +221,8 @@ class PSO:
 
 if __name__ == "__main__":
     # Flags de ejecución
-    MOSTRAR_ANIMACION = False
-    GUARDAR_DATOS = True
+    MOSTRAR_ANIMACION = True
+    GUARDAR_DATOS = False
 
     # pso = PSO(
     #     rastrigin, 
@@ -235,35 +235,35 @@ if __name__ == "__main__":
     #     max_v=0.5
     # )
 
-    # pso = PSO(
-    #     rastrigin, 
-    #     dom_min=-3, 
-    #     dom_max=7, 
-    #     n_particles=50,
-    #     w=0.8,
-    #     c1=0.5,
-    #     c2=1,
-    #     max_v=0.5
-    # )
-    # pso.ejecutar(iterations=80, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+    pso = PSO(
+        rastrigin, 
+        dom_min=-3, 
+        dom_max=7, 
+        n_particles=100,
+        w=0.7,
+        c1=1.8,
+        c2=1.5,
+        max_v=0.5
+    )
+    pso.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
     
 
     # Iniciar proceso para estudio (30 ejecuciones independientes)
-    print(f"Iniciando estudio de 30 ejecuciones...")
-    for i in range(30):
-        # Crear una instancia NUEVA en cada iteración para resetear partículas e historial
-        pso = PSO(
-            rastrigin, 
-            dom_min=-3, 
-            dom_max=7, 
-            n_particles=100,
-            w=0.7,
-            c1=1.8,
-            c2=1.5,
-            max_v=0.5
-        )
-        pso.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
-        print(f"Ejecución {i+1}/30 completada.")
+    # print(f"Iniciando estudio de 30 ejecuciones...")
+    # for i in range(30):
+    #     # Crear una instancia NUEVA en cada iteración para resetear partículas e historial
+    #     pso = PSO(
+    #         rastrigin, 
+    #         dom_min=-3, 
+    #         dom_max=7, 
+    #         n_particles=100,
+    #         w=0.7,
+    #         c1=1.8,
+    #         c2=1.5,
+    #         max_v=0.5
+    #     )
+    #     pso.ejecutar(iterations=200, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+    #     print(f"Ejecución {i+1}/30 completada.")
 
 
 # Mostrar donde converge prematuramente

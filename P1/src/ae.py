@@ -249,36 +249,36 @@ class AE:
 
 if __name__ == "__main__":
     # Flags de ejecución
-    MOSTRAR_ANIMACION = False
-    GUARDAR_DATOS = True
+    MOSTRAR_ANIMACION = True
+    GUARDAR_DATOS = False
 
     iterations = 200
-    # ae = AE(
-    #     rastrigin, 
-    #     pop_size=50, 
-    #     dom_min=-3, 
-    #     dom_max=7, 
-    #     tournament_k=20,
-    #     crossover_prob=0.1, 
-    #     mutation_prob=0.05,        # 10% es más estándar que 10
-    #     mutation_range=0.8,       # Empezamos con un rango mayor para explorar valles
-    #     max_generations=iterations
-    # )
-    # ae.ejecutar(iterations=iterations, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+    ae = AE(
+        rastrigin, 
+        pop_size=100, 
+        dom_min=-3, 
+        dom_max=7, 
+        tournament_k=3,
+        crossover_prob=0.8, 
+        mutation_prob=0.2,        # 10% es más estándar que 10
+        mutation_range=1,       # Empezamos con un rango mayor para explorar valles
+        max_generations=iterations
+    )
+    ae.ejecutar(iterations=iterations, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
     
-    # Iniciar proceso para estudio (30 ejecuciones independientes)
-    print(f"Iniciando estudio de 30 ejecuciones...")
-    for i in range(30):
-        ae = AE(
-            rastrigin, 
-            pop_size=100, 
-            dom_min=-3, 
-            dom_max=7, 
-            tournament_k=3,
-            crossover_prob=0.8, 
-            mutation_prob=0.2,        # 10% es más estándar que 10
-            mutation_range=1,         # Empezamos con un rango mayor para explorar valles
-            max_generations=iterations
-        )
-        ae.ejecutar(iterations=iterations, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
-        print(f"Ejecución {i+1}/30 completada.")
+    # # Iniciar proceso para estudio (30 ejecuciones independientes)
+    # print(f"Iniciando estudio de 30 ejecuciones...")
+    # for i in range(30):
+    #     ae = AE(
+    #         rastrigin, 
+    #         pop_size=100, 
+    #         dom_min=-3, 
+    #         dom_max=7, 
+    #         tournament_k=3,
+    #         crossover_prob=0.8, 
+    #         mutation_prob=0.2,        # 10% es más estándar que 10
+    #         mutation_range=1,         # Empezamos con un rango mayor para explorar valles
+    #         max_generations=iterations
+    #     )
+    #     ae.ejecutar(iterations=iterations, animation=MOSTRAR_ANIMACION, save_data=GUARDAR_DATOS)
+    #     print(f"Ejecución {i+1}/30 completada.")
