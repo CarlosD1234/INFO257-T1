@@ -2,5 +2,3 @@ venv/
 data/
 __pycache__/
 .vscode/
-*.png
-datasets_simulados/
