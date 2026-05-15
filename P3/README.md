@@ -14,3 +14,9 @@ python -m venv venv
 # Instalar dependencias
 pip install -r requirements.txt
 ```
+
+
+La tarea consiste en:
+
+1. Aplicar una metodología de aprendizaje supervisado para resolver un problema de clasificación y uno de regresión.
+2. Evaluar de manera crítica la metodología utilizada y los resultados obtenidos.
