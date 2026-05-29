@@ -13,7 +13,6 @@ class MLP1(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
 class MLP2(nn.Module):
     def __init__(self, input_dim: int):
         super().__init__()
@@ -30,7 +29,6 @@ class MLP2(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
 
 class MLP3(nn.Module):
     def __init__(self, input_dim: int):
