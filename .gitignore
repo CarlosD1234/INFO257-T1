@@ -3,3 +3,21 @@ venv_gpu/
 __pycache__/
 .vscode/
 data_otra/
+
+# === Secretos / credenciales — NUNCA subir ===
+.env
+.env.*
+*.env
+!.env.example
+
+# === Bases de datos vectoriales generadas (ChromaDB) ===
+chroma_db/
+chroma_db_tarea/
+**/chroma_db*/
+*.sqlite3
+
+# === Artefactos de Python / Jupyter ===
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+env/

@@ -1,0 +1,31 @@
+# ============================================================
+# .gitignore para Tarea_final
+# Evita subir secretos y artefactos generados al repo público.
+# ============================================================
+
+# --- Secretos / credenciales (CRÍTICO) ---
+.env
+.env.*
+*.env
+!.env.example
+*.key
+secrets.*
+
+# --- Bases de datos vectoriales generadas (ChromaDB) ---
+chroma_db/
+chroma_db_tarea/
+**/chroma_db*/
+*.sqlite3
+*.bin
+
+# --- Python / Jupyter ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
