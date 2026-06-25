@@ -4,15 +4,26 @@
 
 import os
 import glob
+import json
 from tqdm import tqdm
-from docling.document_converter import DocumentConverter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.base_models import InputFormat
 
 
 # ===========================================================
 # CONFIG
 # ===========================================================
 
-converter = DocumentConverter()
+pipeline_options = PdfPipelineOptions(do_ocr=False)
+converter = DocumentConverter(
+    format_options={
+        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+    }
+)
+
 
 # ===========================================================
 # 1. PARSEO PDF → MARKDOWN
@@ -51,35 +62,46 @@ def save_markdown(file_name, markdown, output_folder):
 
 def extract_chunks(file_name, markdown):
     """
-    Cada chunk = párrafo basado en markdown
+    Chunking por tamaño de caracteres con overlap (mejor para RAG
+    que partir solo por párrafo, evita cortar ideas a la mitad)
     """
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=150,
+        separators=["\n\n", "\n", ". ", " "],
+    )
+    pieces = splitter.split_text(markdown)
+
     chunks = []
-    chunk_id = 0
-
-    paragraphs = markdown.split("\n\n")
-
-    for p in paragraphs:
+    for i, p in enumerate(pieces):
         p = p.strip()
 
         if len(p) < 20:
             continue
 
         chunks.append({
-            "id": f"{file_name}_chunk_{chunk_id}",
+            "id": f"{file_name}_chunk_{i}",
             "text": p,
             "metadata": {
                 "file_name": file_name,
-                "chunk_index": chunk_id
+                "chunk_index": i
             }
         })
-
-        chunk_id += 1
 
     return chunks
 
 
 # ===========================================================
-# 4. PIPELINE PRINCIPAL
+# 4. GUARDAR CHUNKS
+# ===========================================================
+
+def save_chunks(all_chunks, output_path):
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(all_chunks, f, ensure_ascii=False, indent=2)
+
+
+# ===========================================================
+# 5. PIPELINE PRINCIPAL
 # ===========================================================
 
 def process_pdfs(pdf_folder, md_folder):
@@ -115,13 +137,18 @@ def process_pdfs(pdf_folder, md_folder):
 
 
 # ===========================================================
-# 5. EJECUCIÓN
+# 6. EJECUCIÓN
 # ===========================================================
 
 if __name__ == "__main__":
     pdf_folder = "./data_raw"
     md_folder = "./data_extracted"
+    chunks_path = os.path.join(md_folder, "chunks.json")
 
     print("INICIANDO PARSEO PDF → MARKDOWN")
     chunks = process_pdfs(pdf_folder, md_folder)
+
+    save_chunks(chunks, chunks_path)
+    print(f"Chunks guardados en: {chunks_path}")
+
     print("TERMINADO")
