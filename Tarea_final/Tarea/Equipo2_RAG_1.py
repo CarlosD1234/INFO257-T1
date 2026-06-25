@@ -169,7 +169,7 @@ class SimpleRAGSystem:
                 {"role": "user", "content": user_prompt}
             ]
             response = self.llm.invoke(messages)
-            
+    
             return response.content, full_context
             
         except Exception as e:
