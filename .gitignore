@@ -11,10 +11,6 @@ data_otra/
 !.env.example
 
 # === Bases de datos vectoriales generadas (ChromaDB) ===
-chroma_db/
-chroma_db_tarea/
-**/chroma_db*/
-*.sqlite3
 
 # === Artefactos de Python / Jupyter ===
 *.py[cod]

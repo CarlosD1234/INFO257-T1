@@ -12,10 +12,6 @@
 secrets.*
 
 # --- Bases de datos vectoriales generadas (ChromaDB) ---
-chroma_db/
-chroma_db_tarea/
-**/chroma_db*/
-*.sqlite3
 *.bin
 
 # --- Python / Jupyter ---
