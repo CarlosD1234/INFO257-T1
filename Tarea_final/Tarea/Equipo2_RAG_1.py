@@ -2,266 +2,299 @@
 # -*- coding: utf-8 -*-
 
 """
-Script para la Tarea RAG - Inteligencia Artificial
-Uso: python Equipo2_RAG_1.py preguntas.csv
+Sistema RAG sobre obesidad - Tarea Inteligencia Artificial (Equipo 2)
+
+Uso:
+    python Equipo2_RAG_1.py preguntas.csv
+
+Entrada : CSV con columnas (numero, pregunta)
+Salida  : respuestas.csv con columnas (numero, respuesta, contexto)
+
+Arquitectura:
+    - Corpus: 18 documentos clinicos sobre obesidad -> 2158 chunks (data_extracted/chunks.json)
+    - Embeddings: Qwen3-Embedding-8B servido localmente por LM Studio (mismo modelo
+      para indexar y consultar). Dimension 4096.
+    - Vector store: ChromaDB persistente (coleccion reconstruible desde chunks.json)
+    - Generacion: gpt-5-nano (OpenAI) con grounding estricto anti-alucinacion
+
+El indice se construye automaticamente la primera vez a partir de chunks.json
+(que esta versionado). Los embeddings requieren LM Studio corriendo en local con el
+modelo de embeddings cargado; la generacion de respuestas requiere una OPENAI_API_KEY
+valida.
 """
 
 import os
 import sys
 import csv
+import json
 
-# Cargar variables de entorno si existe un archivo .env
+# ---------------------------------------------------------------------------
+# Configuracion
+# ---------------------------------------------------------------------------
+
+# Rutas relativas al directorio del script (para que funcione desde cualquier cwd)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CHUNKS_PATH = os.path.join(BASE_DIR, "data_extracted", "chunks.json")
+CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
+COLLECTION_NAME = "tesis_docs"
+
+# Embeddings: Qwen3-Embedding-8B servido por LM Studio (API compatible con OpenAI).
+# El identifier debe coincidir EXACTO con el que muestra LM Studio en "Local Server".
+LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
+EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"
+
+CHAT_MODEL = "gpt-5-nano"   # generacion via OpenAI
+
+TOP_K = 5                 # fragmentos recuperados por pregunta
+EMBED_BATCH_SIZE = 16     # batch al indexar (8B es pesado; bajar a 4-8 si hay timeout)
+
+OUTPUT_CSV_PATH = "respuestas.csv"
+
+
+# ---------------------------------------------------------------------------
+# Dependencias
+# ---------------------------------------------------------------------------
+
+# Cargar variables de entorno desde .env si esta disponible
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
+    load_dotenv()  # tambien intenta en el cwd
 except ImportError:
     pass
 
-# Verificar la clave de API
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    print("[Error] No se encontró la variable de entorno OPENAI_API_KEY.", file=sys.stderr)
-    print("Asegúrate de crear un archivo .env en la carpeta de ejecución con: OPENAI_API_KEY=tu_clave_api", file=sys.stderr)
-
-
-# Importaciones condicionales de LangChain para permitir la validación del formato sin requerir todas las dependencias
 try:
-    from langchain_community.document_loaders import PyPDFLoader
-    from langchain_huggingface import HuggingFaceEmbeddings
-    from langchain_chroma import Chroma
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from langchain_openai import ChatOpenAI
-    from langchain_core.documents import Document
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    LANGCHAIN_AVAILABLE = False
-    print("\n[Advertencia] Algunas librerías de LangChain no están instaladas.", file=sys.stderr)
-    print("Para instalarlas ejecuta: pip install langchain langchain-community langchain-openai langchain-chroma langchain-huggingface sentence-transformers chromadb pypdf\n", file=sys.stderr)
-
-try:
-    from docling.document_converter import DocumentConverter
-    DOCLING_AVAILABLE = True
-except ImportError:
-    DOCLING_AVAILABLE = False
-    print("\n[Advertencia] La librería docling no está instalada.", file=sys.stderr)
-    print("Para instalarla ejecuta: pip install docling\n", file=sys.stderr)
+    import chromadb
+    from openai import OpenAI
+    DEPS_AVAILABLE = True
+except ImportError as e:
+    DEPS_AVAILABLE = False
+    print(f"\n[Error] Faltan dependencias: {e}", file=sys.stderr)
+    print("Instala con: pip install openai chromadb python-dotenv\n", file=sys.stderr)
 
 
-class SimpleRAGSystem:
-    def __init__(self, doc_path=None, persist_dir="chroma_db_tarea"):
-        self.doc_path = doc_path
-        self.persist_dir = persist_dir
-        self.vector_db = None
-        self.retriever = None
-        self.llm = None
-        
+# ---------------------------------------------------------------------------
+# Sistema RAG
+# ---------------------------------------------------------------------------
+
+class RAGSystem:
+    def __init__(self):
+        self.client = None          # OpenAI (generacion de respuestas)
+        self.embed_client = None    # LM Studio (embeddings Qwen)
+        self.collection = None
+
+    # -- Inicializacion -----------------------------------------------------
     def initialize(self):
-        """Inicializa el RAG indexando el documento base si está disponible."""
-        if not LANGCHAIN_AVAILABLE:
-            print("[Error] No se puede inicializar el RAG sin las librerías de LangChain.", file=sys.stderr)
+        """Prepara los clientes (OpenAI + LM Studio) y la coleccion vectorial."""
+        if not DEPS_AVAILABLE:
             return False
-            
-        print("[1/3] Inicializando modelos de embeddings y LLM...")
-        # Inicializar embeddings locales gratuitos
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            print("[Error] No se encontro OPENAI_API_KEY.", file=sys.stderr)
+            print("Crea un archivo .env junto al script con: OPENAI_API_KEY=tu_clave", file=sys.stderr)
+            return False
+
+        print("[1/3] Inicializando clientes (OpenAI para chat, LM Studio para embeddings)...")
+        self.client = OpenAI(api_key=api_key)
+        # LM Studio expone una API compatible con OpenAI; la api_key es un placeholder.
+        self.embed_client = OpenAI(base_url=LMSTUDIO_BASE_URL, api_key="lm-studio")
+
+        print("[2/3] Preparando base vectorial (ChromaDB)...")
+        chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+
+        # cosine es mas estable que la distancia L2 por defecto para embeddings normalizados
+        self.collection = chroma_client.get_or_create_collection(
+            name=COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"},
         )
-        
-        # Inicializar el LLM con la API key obtenida
-        self.llm = ChatOpenAI(model="gpt-5-nano", temperature=0.0)
-        
-        # Si ya existe base de datos persistida, cargarla
-        if os.path.exists(self.persist_dir) and len(os.listdir(self.persist_dir)) > 0:
-            print("[2/3] Cargando base de datos vectorial existente de ChromaDB...")
-            self.vector_db = Chroma(
-                persist_directory=self.persist_dir,
-                embedding_function=self.embeddings
-            )
-        else:
-            # Si no existe, indexar el documento base
-            if not self.doc_path or not os.path.exists(self.doc_path):
-                print(f"[Error] No se encontró el documento base '{self.doc_path}' para indexar y crear la base vectorial.", file=sys.stderr)
+
+        # Si la coleccion esta vacia, construir el indice desde chunks.json
+        try:
+            existing = self.collection.count()
+        except Exception:
+            existing = 0
+
+        if existing == 0:
+            if not os.path.exists(CHUNKS_PATH):
+                print(f"[Error] No se encontro el corpus '{CHUNKS_PATH}'.", file=sys.stderr)
                 return False
-                
-            print(f"[2/3] Procesando documento con Docling...")
-            
-            if DOCLING_AVAILABLE:
-                try:
-                    # Usar Docling para convertir el PDF a Markdown limpio
-                    print(f"  -> Convirtiendo PDF '{self.doc_path}' a Markdown usando Docling...")
-                    converter = DocumentConverter()
-                    result = converter.convert(self.doc_path)
-                    markdown_text = result.document.export_to_markdown()
-                    
-                    # Envolver el contenido en un objeto Document de LangChain
-                    documents = [
-                        Document(
-                            page_content=markdown_text,
-                            metadata={"source": self.doc_path}
-                        )
-                    ]
-                except Exception as e:
-                    print(f"[Error] Falló la conversión con Docling: {e}. Intentando fallback con PyPDFLoader...", file=sys.stderr)
-                    loader = PyPDFLoader(self.doc_path)
-                    documents = loader.load()
-            else:
-                print("  -> [Advertencia] Docling no está disponible. Usando PyPDFLoader como fallback...", file=sys.stderr)
-                loader = PyPDFLoader(self.doc_path)
-                documents = loader.load()
-            
-            # Aplicar splitter semántico o por caracteres
-            splitter = RecursiveCharacterTextSplitter(
-                separators=["\n\n", "\n", ". ", " ", ""],
-                chunk_size=1000,
-                chunk_overlap=150
-            )
-            chunks = splitter.split_documents(documents)
-            
-            # Crear y persistir la base vectorial
-            self.vector_db = Chroma.from_documents(
-                documents=chunks,
-                embedding=self.embeddings,
-                persist_directory=self.persist_dir
-            )
-            print(f"Indexación completada. Creados {len(chunks)} chunks.")
-            
-        # Definir retriever
-        self.retriever = self.vector_db.as_retriever(
-            search_kwargs={"k": 4} # Obtener los 4 fragmentos más relevantes
-        )
-        print("[3/3] Sistema RAG inicializado con éxito.")
+            self._build_index()
+        else:
+            print(f"  -> Coleccion ya indexada ({existing} chunks). Reutilizando.")
+
+        print("[3/3] Sistema RAG listo.")
         return True
 
+    # -- Embeddings ---------------------------------------------------------
+    def _embed(self, texts):
+        """Genera embeddings con Qwen3-Embedding-8B (LM Studio) para una lista de textos."""
+        cleaned = [t.replace("\n", " ") for t in texts]
+        resp = self.embed_client.embeddings.create(input=cleaned, model=EMBEDDING_MODEL)
+        return [d.embedding for d in resp.data]
+
+    # -- Construccion del indice -------------------------------------------
+    def _build_index(self):
+        """Indexa todos los chunks del corpus en ChromaDB (una sola vez)."""
+        with open(CHUNKS_PATH, "r", encoding="utf-8") as f:
+            chunks = json.load(f)
+
+        total = len(chunks)
+        print(f"  -> Indexando corpus por primera vez: {total} chunks "
+              f"con '{EMBEDDING_MODEL}' (esto puede tardar 1-2 min)...")
+
+        for i in range(0, total, EMBED_BATCH_SIZE):
+            batch = chunks[i:i + EMBED_BATCH_SIZE]
+            texts = [c["text"] for c in batch]
+            ids = [c["id"] for c in batch]
+            metadatas = [c["metadata"] for c in batch]
+
+            embeddings = self._embed(texts)
+            self.collection.add(
+                ids=ids,
+                embeddings=embeddings,
+                documents=texts,
+                metadatas=metadatas,
+            )
+            print(f"     {min(i + EMBED_BATCH_SIZE, total)}/{total} chunks indexados", end="\r")
+
+        print(f"\n  -> Indexacion completada: {self.collection.count()} chunks.")
+
+    # -- Consulta -----------------------------------------------------------
     def query(self, question):
-        """Consulta el RAG para obtener una respuesta y el contexto utilizado."""
-        if not LANGCHAIN_AVAILABLE or not self.vector_db:
-            # Fallback simple si no está disponible LangChain o la base de datos
-            return "Respuesta simulada (instala LangChain y configura la API para respuestas reales).", "Contexto simulado."
-            
+        """Recupera contexto relevante y genera una respuesta con grounding estricto.
+
+        Devuelve (respuesta, contexto_utilizado).
+        """
+        if not self.collection or not self.client:
+            return ("Respuesta no disponible (sistema no inicializado).", "")
+
         try:
-            # 1. Recuperar contexto
-            retrieved_docs = self.retriever.invoke(question)
-            
-            # 2. Formatear el contexto recuperado
-            context_list = []
-            for i, doc in enumerate(retrieved_docs):
-                source_info = f"[Doc: {os.path.basename(doc.metadata.get('source', 'unknown'))}, Pág: {doc.metadata.get('page', 'N/A')}]"
-                context_list.append(f"Fragmento {i+1} {source_info}:\n{doc.page_content.strip()}")
-                
-            full_context = "\n\n---\n\n".join(context_list)
-            
-            # 3. Construir el prompt del sistema y usuario para Grounded Generation
+            # 1. Recuperar contexto (similarity search con el mismo modelo de embeddings)
+            q_emb = self._embed([question])[0]
+            results = self.collection.query(
+                query_embeddings=[q_emb],
+                n_results=TOP_K,
+                include=["documents", "metadatas", "distances"],
+            )
+
+            docs = results["documents"][0]
+            metas = results["metadatas"][0]
+            dists = results["distances"][0]
+
+            # 2. Formatear contexto con trazabilidad (documento + chunk + distancia)
+            context_parts = []
+            for j, (text, meta, dist) in enumerate(zip(docs, metas, dists)):
+                fuente = meta.get("file_name", "desconocido")
+                idx = meta.get("chunk_index", "N/A")
+                context_parts.append(
+                    f"Fragmento {j + 1} [Doc: {fuente}, chunk: {idx}, dist: {dist:.3f}]:\n"
+                    f"{text.strip()}"
+                )
+            full_context = "\n\n---\n\n".join(context_parts)
+
+            # 3. Prompt con grounding estricto (la pauta penaliza fuertemente las alucinaciones)
             system_prompt = (
                 "Eres un asistente de salud especializado en el manejo de la obesidad.\n"
-                "Tu objetivo es responder de manera clara, pedagógica, útil y clínicamente segura.\n"
-                "INSTRUCCIONES CRÍTICAS:\n"
-                "1. Responde únicamente basándote en el CONTEXTO provisto abajo.\n"
-                "2. Si el contexto no contiene información suficiente para responder, di con honestidad: 'No dispongo de suficiente información en las guías oficiales para responder a tu pregunta'.\n"
-                "3. No inventes datos, medicamentos ni recomendaciones que no estén explícitamente en el contexto.\n"
-                "4. Mantén un tono empático pero formal y científicamente responsable."
+                "Tu objetivo es responder de manera clara, pedagogica, util y clinicamente segura.\n"
+                "INSTRUCCIONES CRITICAS:\n"
+                "1. Responde unicamente basandote en el CONTEXTO provisto abajo.\n"
+                "2. Si el contexto no contiene informacion suficiente, di con honestidad: "
+                "'No dispongo de suficiente informacion en las guias oficiales para responder a tu pregunta'.\n"
+                "3. No inventes datos, medicamentos ni recomendaciones que no esten explicitamente en el contexto.\n"
+                "4. Cuando sea pertinente, indica de que documento proviene la informacion.\n"
+                "5. Manten un tono empatico pero formal y cientificamente responsable."
             )
-            
             user_prompt = f"CONTEXTO:\n{full_context}\n\nPREGUNTA:\n{question}\n\nRESPUESTA:"
-            
-            # 4. Generar respuesta con el LLM
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-            response = self.llm.invoke(messages)
-    
-            return response.content, full_context
-            
-        except Exception as e:
-            error_msg = f"Error al procesar la consulta: {str(e)}"
-            print(f"[Error] {error_msg}", file=sys.stderr)
-            return f"Lo siento, ocurrió un error al procesar tu pregunta. ({error_msg})", ""
 
+            # 4. Generar respuesta
+            response = self.client.chat.completions.create(
+                model=CHAT_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            answer = response.choices[0].message.content.strip()
+            return answer, full_context
+
+        except Exception as e:
+            error_msg = f"Error al procesar la consulta: {e}"
+            print(f"[Error] {error_msg}", file=sys.stderr)
+            return (f"Lo siento, ocurrio un error al procesar tu pregunta. ({error_msg})", "")
+
+
+# ---------------------------------------------------------------------------
+# Lectura de preguntas
+# ---------------------------------------------------------------------------
+
+def leer_preguntas(input_csv_path):
+    """Lee el CSV de entrada y devuelve una lista de tuplas (numero, pregunta)."""
+    preguntas = []
+    with open(input_csv_path, "r", encoding="utf-8-sig") as csvfile:
+        reader = csv.reader(csvfile)
+        header = next(reader, None)
+
+        idx_id, idx_question = 0, 1
+        if header:
+            header_lower = [h.lower().strip() for h in header]
+            if "numero" in header_lower:
+                idx_id = header_lower.index("numero")
+            elif "id" in header_lower:
+                idx_id = header_lower.index("id")
+            if "pregunta" in header_lower:
+                idx_question = header_lower.index("pregunta")
+
+        for row in reader:
+            if not row or len(row) <= max(idx_id, idx_question):
+                continue
+            preguntas.append((row[idx_id].strip(), row[idx_question].strip()))
+    return preguntas
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
-    # Validar argumentos de línea de comando
     if len(sys.argv) < 2:
-        print("Uso del script:", file=sys.stderr)
-        print("  python Equipo2_RAG_1.py <ruta_preguntas.csv>", file=sys.stderr)
+        print("Uso: python Equipo2_RAG_1.py <ruta_preguntas.csv>", file=sys.stderr)
         sys.exit(1)
-        
+
     input_csv_path = sys.argv[1]
-    output_csv_path = "respuestas.csv"
-    
     if not os.path.exists(input_csv_path):
         print(f"[Error] El archivo de entrada '{input_csv_path}' no existe.", file=sys.stderr)
         sys.exit(1)
-        
-    # Inicializar el RAG utilizando el PDF de la Sesión 2 como corpus base inicial
-    # Ajustar la ruta del PDF dependiendo de dónde se ejecute el script
-    pdf_path = "../sesion2-Agentes-LangGraph/articulo.pdf"
-    if not os.path.exists(pdf_path):
-        pdf_path = "sesion2-Agentes-LangGraph/articulo.pdf"
-        
-    rag = SimpleRAGSystem(doc_path=pdf_path)
-    rag_initialized = rag.initialize()
-    
-    if not rag_initialized:
-        print("[Advertencia] Iniciando en MODO SIMULACIÓN (sin embeddings ni LLM real).", file=sys.stderr)
 
-    preguntas_procesadas = []
-    
+    rag = RAGSystem()
+    if not rag.initialize():
+        print("[Error] No se pudo inicializar el sistema RAG. Abortando.", file=sys.stderr)
+        sys.exit(1)
+
     print(f"\nLeyendo preguntas desde '{input_csv_path}'...")
     try:
-        # Detectar delimitador y codificación
-        with open(input_csv_path, 'r', encoding='utf-8-sig') as csvfile:
-            # Leer el archivo utilizando csv.reader
-            reader = csv.reader(csvfile)
-            header = next(reader, None) # Leer cabecera
-            
-            # Mapear columnas para manejar variaciones (ej. 'numero' vs 'id' y 'pregunta')
-            idx_id = 0
-            idx_question = 1
-            
-            if header:
-                # Normalizar cabecera a minúsculas
-                header_lower = [h.lower().strip() for h in header]
-                if "numero" in header_lower:
-                    idx_id = header_lower.index("numero")
-                elif "id" in header_lower:
-                    idx_id = header_lower.index("id")
-                    
-                if "pregunta" in header_lower:
-                    idx_question = header_lower.index("pregunta")
-            
-            for row in reader:
-                if not row or len(row) <= max(idx_id, idx_question):
-                    continue
-                q_id = row[idx_id].strip()
-                q_text = row[idx_question].strip()
-                preguntas_procesadas.append((q_id, q_text))
-                
+        preguntas = leer_preguntas(input_csv_path)
     except Exception as e:
-        print(f"[Error] Error leyendo el archivo CSV: {e}", file=sys.stderr)
+        print(f"[Error] Error leyendo el CSV: {e}", file=sys.stderr)
         sys.exit(1)
-        
-    total_preguntas = len(preguntas_procesadas)
-    print(f"Se encontraron {total_preguntas} preguntas. Iniciando procesamiento...\n")
-    
-    # Procesar preguntas y escribir respuestas en tiempo real
-    respuestas_generadas = []
-    
-    # Usamos utf-8-sig para que Excel en Windows muestre tildes y caracteres especiales correctamente
-    with open(output_csv_path, 'w', newline='', encoding='utf-8-sig') as csvfile:
+
+    total = len(preguntas)
+    print(f"Se encontraron {total} preguntas. Iniciando procesamiento...\n")
+
+    # Escritura incremental: cada fila se guarda al instante (resistente a interrupciones).
+    # utf-8-sig para que Excel en Windows muestre tildes correctamente.
+    with open(OUTPUT_CSV_PATH, "w", newline="", encoding="utf-8-sig") as csvfile:
         writer = csv.writer(csvfile)
-        # Escribir la cabecera exacta requerida por la pauta
         writer.writerow(["numero", "respuesta", "contexto"])
-        
-        for index, (q_id, q_text) in enumerate(preguntas_procesadas):
-            print(f"[{index + 1}/{total_preguntas}] Procesando pregunta ID {q_id}...")
-            
-            # Obtener respuesta y contexto del RAG
+
+        for i, (q_id, q_text) in enumerate(preguntas):
+            print(f"[{i + 1}/{total}] Procesando pregunta ID {q_id}...")
             respuesta, contexto = rag.query(q_text)
-            
-            # Escribir fila inmediatamente para asegurar el guardado ante interrupciones
             writer.writerow([q_id, respuesta, contexto])
-            
-    print(f"\nProceso finalizado. Respuestas guardadas en '{output_csv_path}'.")
+            csvfile.flush()
+
+    print(f"\nProceso finalizado. Respuestas guardadas en '{OUTPUT_CSV_PATH}'.")
 
 
 if __name__ == "__main__":
