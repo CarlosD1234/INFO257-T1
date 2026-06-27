@@ -21,12 +21,12 @@ from langchain_openai import ChatOpenAI
 # CONFIG
 # ===========================================================
 
-load_dotenv()  # carga variables desde .env
+load_dotenv()
 
-CHROMA_PATH = "./chroma_db"
+CHROMA_PATH = "../chroma_db"
 COLLECTION_NAME = "tesis_docs"
-PREGUNTAS_EMBEDDINGS_PATH = "./data_extracted/preguntas_embeddings.json"
-OUTPUT_PATH = "./data_extracted/rag_resultados.json"
+PREGUNTAS_EMBEDDINGS_PATH = "../data_extracted/preguntas_embeddings.json"
+OUTPUT_PATH = "../data_extracted/rag_resultados.json"
 
 TOP_K = 5
 
