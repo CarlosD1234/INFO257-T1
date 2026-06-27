@@ -16,11 +16,9 @@ CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "tesis_docs"
 
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
-# Debe coincidir EXACTO con el identifier que muestra LM Studio
-# (revisa en la pestaña "Local Server" o con GET http://localhost:1234/v1/models)
 EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"
 
-BATCH_SIZE = 16  # bajar a 4-8 si el modelo va lento o da timeout (8B es pesado)
+BATCH_SIZE = 16 
 
 client = OpenAI(base_url=LMSTUDIO_BASE_URL, api_key="lm-studio")
 

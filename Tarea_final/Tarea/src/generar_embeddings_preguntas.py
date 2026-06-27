@@ -18,8 +18,6 @@ LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"
 BATCH_SIZE = 16
 
-# Mismo formato de instrucción usado en el retrieval: las preguntas
-# son queries, no documentos, así que llevan este prefijo.
 INSTRUCT_PREFIX = (
     "Instruct: Given a web search query, retrieve relevant passages "
     "that answer the query.\nQuery: "
@@ -34,7 +32,7 @@ client = OpenAI(base_url=LMSTUDIO_BASE_URL, api_key="lm-studio")
 
 def load_questions(path):
     df = pd.read_csv(path)
-    df.columns = [c.strip().lower() for c in df.columns]  # normaliza nombres
+    df.columns = [c.strip().lower() for c in df.columns]
     return df
 
 

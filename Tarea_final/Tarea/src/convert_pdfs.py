@@ -30,9 +30,6 @@ converter = DocumentConverter(
 # ===========================================================
 
 def parse_pdf_to_markdown(pdf_path):
-    """
-    Convierte PDF → Markdown (una sola vez)
-    """
     result = converter.convert(pdf_path)
     doc = result.document
 
@@ -61,10 +58,6 @@ def save_markdown(file_name, markdown, output_folder):
 # ===========================================================
 
 def extract_chunks(file_name, markdown):
-    """
-    Chunking por tamaño de caracteres con overlap (mejor para RAG
-    que partir solo por párrafo, evita cortar ideas a la mitad)
-    """
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=150,
@@ -105,10 +98,6 @@ def save_chunks(all_chunks, output_path):
 # ===========================================================
 
 def process_pdfs(pdf_folder, md_folder):
-    """
-    Pipeline completo:
-    PDF → Markdown (guardado) → chunks (en memoria)
-    """
     all_chunks = []
 
     pdf_files = glob.glob(os.path.join(pdf_folder, "*.pdf"))
