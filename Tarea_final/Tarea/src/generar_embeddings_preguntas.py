@@ -11,14 +11,14 @@ from openai import OpenAI
 # CONFIG
 # ===========================================================
 
-INPUT_CSV = "./preguntas.csv"
-OUTPUT_EMBEDDINGS = "./preguntas_embeddings.json"
+INPUT_CSV = "./data_raw/preguntas.csv"
+OUTPUT_EMBEDDINGS = "./data_extracted/preguntas_embeddings.json"
 
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"
 BATCH_SIZE = 16
 
-INSTRUCT_PREFIX = (
+INSTRUCT_PREFIX = ( # Cambiar
     "Instruct: Given a web search query, retrieve relevant passages "
     "that answer the query.\nQuery: "
 )
