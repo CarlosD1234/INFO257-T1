@@ -18,7 +18,7 @@ LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"
 BATCH_SIZE = 16
 
-INSTRUCT_PREFIX = ( # Cambiar
+INSTRUCT_PREFIX = (
     "Instruct: Given a web search query, retrieve relevant passages "
     "that answer the query.\nQuery: "
 )
