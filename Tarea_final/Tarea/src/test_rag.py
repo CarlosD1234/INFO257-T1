@@ -82,7 +82,8 @@ def build_context(docs, metadatas):
     """
     parts = []
     for i, (doc, meta) in enumerate(zip(docs, metadatas)):
-        fuente = (meta or {}).get("source", f"chunk_{i}")
+        meta = meta or {}
+        fuente = meta.get("file_name") or meta.get("source") or f"chunk_{i}"
         parts.append(f"[Fuente: {fuente}]\n{doc}")
     return "\n\n---\n\n".join(parts)
 
