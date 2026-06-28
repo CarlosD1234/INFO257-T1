@@ -11,8 +11,8 @@ from openai import OpenAI
 # CONFIG
 # ===========================================================
 
-INPUT_CSV = "./data_raw/preguntas.csv"
-OUTPUT_EMBEDDINGS = "./data_extracted/preguntas_embeddings.json"
+INPUT_CSV = "../data_raw/preguntas.csv"
+OUTPUT_EMBEDDINGS = "../data_extracted/preguntas_embeddings.json"
 
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"

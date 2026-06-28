@@ -11,8 +11,8 @@ from openai import OpenAI
 # CONFIG
 # ===========================================================
 
-CHUNKS_PATH = "./data_extracted/chunks.json"
-CHROMA_PATH = "./chroma_db"
+CHUNKS_PATH = "../data_extracted/chunks.json"
+CHROMA_PATH = "../chroma_db"
 COLLECTION_NAME = "tesis_docs"
 
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
