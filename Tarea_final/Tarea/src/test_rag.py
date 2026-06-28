@@ -11,6 +11,7 @@
 # ===========================================================
 
 import os
+import csv
 import json
 from dotenv import load_dotenv
 
@@ -21,12 +22,12 @@ from langchain_openai import ChatOpenAI
 # CONFIG
 # ===========================================================
 
-load_dotenv()
+load_dotenv()  # carga variables desde .env
 
 CHROMA_PATH = "../chroma_db"
 COLLECTION_NAME = "tesis_docs"
 PREGUNTAS_EMBEDDINGS_PATH = "../data_extracted/preguntas_embeddings.json"
-OUTPUT_PATH = "../data_extracted/rag_resultados.json"
+OUTPUT_PATH = "../data_extracted/rag_resultados.csv"
 
 TOP_K = 5
 
@@ -135,15 +136,20 @@ def main():
         print(f"R: {respuesta}")
 
         resultados.append({
-            "numero": numero,
-            "pregunta": pregunta,
-            "respuesta": respuesta,
-            "docs_recuperados": docs,
+            "id": numero,
+            "answer": respuesta,
+            "context": context,
         })
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(resultados, f, ensure_ascii=False, indent=2)
+    with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["id", "answer", "context"],
+            quoting=csv.QUOTE_ALL,
+        )
+        writer.writeheader()
+        writer.writerows(resultados)
 
     print(f"\nResultados guardados en: {OUTPUT_PATH}")
 
