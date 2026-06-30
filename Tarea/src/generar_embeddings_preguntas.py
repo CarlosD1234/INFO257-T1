@@ -11,12 +11,12 @@ from openai import OpenAI
 # CONFIG
 # ===========================================================
 
-INPUT_CSV = "../data_raw/preguntas.csv"
-OUTPUT_EMBEDDINGS = "../data_extracted/preguntas_embeddings.json"
+INPUT_CSV = "../data_raw/preguntas_tarea_unidad4_2026.csv"
+OUTPUT_EMBEDDINGS = "../data_extracted/preguntas_tarea_unidad4_2026_embeddings.json"
 
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 EMBEDDING_MODEL = "text-embedding-qwen3-embedding-8b"
-BATCH_SIZE = 16
+BATCH_SIZE = 10
 
 INSTRUCT_PREFIX = (
     "Instruct: Given a web search query, retrieve relevant passages "
@@ -58,14 +58,14 @@ def main():
 
     for i in tqdm(range(0, len(df), BATCH_SIZE), desc="Generando embeddings"):
         batch = df.iloc[i:i + BATCH_SIZE]
-        numeros = batch["numero"].tolist()
+        numeros = batch["id"].tolist()
         textos = batch["pregunta"].tolist()
 
         embeddings = get_embeddings_batch(textos)
 
         for numero, pregunta, emb in zip(numeros, textos, embeddings):
             results.append({
-                "numero": numero,
+                "id": numero,
                 "pregunta": pregunta,
                 "embedding": emb,
             })
