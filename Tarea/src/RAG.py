@@ -26,8 +26,8 @@ load_dotenv()  # carga variables desde .env
 
 CHROMA_PATH = "../chroma_db"
 COLLECTION_NAME = "tesis_docs"
-PREGUNTAS_EMBEDDINGS_PATH = "../data_extracted/preguntas_embeddings.json"
-OUTPUT_PATH = "../data_extracted/rag_resultados.csv"
+PREGUNTAS_EMBEDDINGS_PATH = "../data_extracted/preguntas_tarea_unidad4_2026_embeddings.json"
+OUTPUT_PATH = "../data_extracted/RESP_preguntas_tarea_unidad4_2026_RAG.csv"
 
 TOP_K = 5
 
@@ -51,7 +51,7 @@ def load_collection(path=CHROMA_PATH, name=COLLECTION_NAME):
 def load_preguntas(path=PREGUNTAS_EMBEDDINGS_PATH):
     """
     Carga el JSON generado previamente, con la forma:
-    [{"numero": ..., "pregunta": ..., "embedding": [...]}, ...]
+    [{"id": ..., "pregunta": ..., "embedding": [...]}, ...]
     """
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -124,7 +124,7 @@ def main():
     resultados = []
 
     for item in preguntas:
-        numero = item["numero"]
+        id = item["id"]
         pregunta = item["pregunta"]
         embedding = item["embedding"]
 
@@ -132,12 +132,12 @@ def main():
         context = build_context(docs, metadatas)
         respuesta = generate_answer(pregunta, context)
 
-        print(f"\n--- Pregunta {numero} ---")
+        print(f"\n--- Pregunta {id} ---")
         print(f"P: {pregunta}")
         print(f"R: {respuesta}")
 
         resultados.append({
-            "id": numero,
+            "id": id,
             "answer": respuesta,
             "context": context,
         })
